@@ -225,7 +225,7 @@ else()
 		${LIBC_LIBRARIES}
 		$<$<NOT:$<BOOL:${IOS}>>:JPEG::JPEG>
 		$<$<NOT:$<BOOL:${IOS}>>:PNG::PNG>
-		$<$<NOT:$<BOOL:${IOS}>>:WebP::libwebp>
+		WebP::libwebp
 	)
 endif()
 
