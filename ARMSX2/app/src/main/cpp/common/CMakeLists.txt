@@ -223,9 +223,9 @@ if(ANDROID)
 else()
 	target_link_libraries(common PRIVATE
 		${LIBC_LIBRARIES}
-		JPEG::JPEG
-		PNG::PNG
-		WebP::libwebp
+		$<$<NOT:$<BOOL:${IOS}>>:JPEG::JPEG>
+		$<$<NOT:$<BOOL:${IOS}>>:PNG::PNG>
+		$<$<NOT:$<BOOL:${IOS}>>:WebP::libwebp>
 	)
 endif()
 

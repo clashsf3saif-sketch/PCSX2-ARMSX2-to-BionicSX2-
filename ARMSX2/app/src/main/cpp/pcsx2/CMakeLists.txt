@@ -1165,19 +1165,19 @@ target_link_libraries(PCSX2_FLAGS INTERFACE
 	fmt::fmt
 	$<$<NOT:$<BOOL:${IOS}>>:rapidyaml::rapidyaml>
 	libchdr
-	libzip::zip
+	$<$<NOT:$<BOOL:${IOS}>>:libzip::zip>
 	cpuinfo
 	cubeb
 	rcheevos
 	simpleini
 	freesurround
-	SDL3::SDL3
-	ZLIB::ZLIB
-	LZ4::LZ4
+	$<$<NOT:$<BOOL:${IOS}>>:SDL3::SDL3>
+	$<$<NOT:$<BOOL:${IOS}>>:ZLIB::ZLIB>
+	$<$<NOT:$<BOOL:${IOS}>>:LZ4::LZ4>
 	SoundTouch::SoundTouch
 #	PNG::PNG
-	LZMA::LZMA
-	Zstd::Zstd
+	$<$<NOT:$<BOOL:${IOS}>>:LZMA::LZMA>
+	$<$<NOT:$<BOOL:${IOS}>>:Zstd::Zstd>
 	demanglegnu
 	ccc
 #	plutovg::plutovg
@@ -1234,7 +1234,7 @@ elseif(ANDROID)
 	)
 else()
 	target_link_libraries(PCSX2_FLAGS INTERFACE
-		PCAP::PCAP
+		$<$<NOT:$<BOOL:${IOS}>>:PCAP::PCAP>
 	)
 endif()
 
