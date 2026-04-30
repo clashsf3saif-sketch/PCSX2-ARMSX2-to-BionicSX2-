@@ -1,193 +1,45 @@
-#-------------------------------------------------------------------------------
-#                       Search all libraries on the system
-#-------------------------------------------------------------------------------
-find_package(Git)
+# Search for system libraries on non-iOS platforms. On iOS, we skip most
+# external packages because they are not available in the SDK and we use
+# bundled or stub implementations.
 
-# Require threads on all OSes.
-find_package(Threads REQUIRED)
+# CURL is not needed on iOS
+if(NOT IOS)
+    find_package(CURL)
+endif()
 
-# Dependency libraries.
-# On macOS, Mono.framework contains an ancient version of libpng.  We don't want that.
-# Avoid it by telling cmake to avoid finding frameworks while we search for libpng.
-set(FIND_FRAMEWORK_BACKUP ${CMAKE_FIND_FRAMEWORK})
-set(CMAKE_FIND_FRAMEWORK NEVER)
+# PCAP is not needed on iOS
+if(NOT IOS)
+    find_package(PCAP)
+endif()
 
-# For iOS, we make system dependencies non-REQUIRED as they're not available in the iOS SDK
-if(IOS)
-	find_package(PNG 1.6.40)
-	find_package(JPEG)
-	find_package(ZLIB)
-	find_package(Zstd 1.5.5)
-	find_package(LZ4)
-	find_package(WebP)
-	find_package(SDL3 3.2.6)
-	find_package(Freetype 2.10)
-	find_package(plutovg 1.1.0)
-	find_package(plutosvg 0.0.7)
-	find_package(ryml)
-	message(STATUS "iOS build: system UI/graphics libraries may not be found (using bundled or built-in)")
+# Always try to find ZLIB (it was found on iOS)
+find_package(ZLIB)
+
+# The following packages are generally NOT available on iOS; make them
+# non-REQUIRED so configuration does not fail.
+if(NOT IOS)
+    # These are listed as REQUIRED for non-iOS builds
+    find_package(PNG REQUIRED)
+    find_package(JPEG REQUIRED)
+    find_package(Zstd REQUIRED)
+    find_package(LZ4 REQUIRED)
+    find_package(WebP REQUIRED)
+    find_package(SDL3 REQUIRED)
+    find_package(Freetype REQUIRED)
+    find_package(plutovg CONFIG REQUIRED)
+    find_package(plutosvg CONFIG REQUIRED)
+    find_package(ryml CONFIG REQUIRED)
 else()
-	find_package(PNG 1.6.40 REQUIRED)
-	find_package(JPEG REQUIRED) # No version because flatpak uses libjpeg-turbo.
-	find_package(ZLIB REQUIRED) # v1.3, but Mac uses the SDK version.
-	find_package(Zstd 1.5.5 REQUIRED)
-	find_package(LZ4 REQUIRED)
-	find_package(WebP REQUIRED) # v1.3.2, spews an error on Linux because no pkg-config.
-	find_package(SDL3 3.2.6 REQUIRED)
-	find_package(Freetype 2.10 REQUIRED) # 2.10 is the first with COLRv0 support, which we need for rendering emoji
-	find_package(plutovg 1.1.0 REQUIRED)
-	find_package(plutosvg 0.0.7 REQUIRED)
-	find_package(ryml REQUIRED)
-endif()
-
-if(USE_VULKAN)
-	if(NOT IOS)
-		find_package(Shaderc REQUIRED)
-	endif()
-endif()
-
-# Platform-specific dependencies.
-if (WIN32)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/D3D12MemAlloc EXCLUDE_FROM_ALL)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/winpixeventruntime EXCLUDE_FROM_ALL)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/winwil EXCLUDE_FROM_ALL)
-	set(FFMPEG_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/3rdparty/ffmpeg/include")
-	find_package(Vtune)
-elseif (ANDROID)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/zlib EXCLUDE_FROM_ALL)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/zstd EXCLUDE_FROM_ALL)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/lz4 EXCLUDE_FROM_ALL)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/libwebp EXCLUDE_FROM_ALL)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/SDL3 EXCLUDE_FROM_ALL)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/harfbuzz EXCLUDE_FROM_ALL)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/freetype EXCLUDE_FROM_ALL)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/oboe EXCLUDE_FROM_ALL)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/plutosvg1 EXCLUDE_FROM_ALL)
-	find_package(EGL REQUIRED)
-	set(CUBEB_API ON)
-elseif (IOS)
-	# iOS build - use bundled third-party libraries
-	message(STATUS "iOS build: configuring bundled third-party libraries")
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/zlib EXCLUDE_FROM_ALL)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/zstd EXCLUDE_FROM_ALL)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/lz4 EXCLUDE_FROM_ALL)
-	# SDL3 may not be needed for iOS bridge, but include for completeness
-	# find_package(EGL) - not available on iOS
-	set(CUBEB_API OFF)
-	set(FFMPEG_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/3rdparty/ffmpeg/include")
-else()
-	# Linux/macOS desktop builds
-	if(NOT IOS)
-		find_package(CURL REQUIRED)
-		find_package(PCAP REQUIRED)
-	endif()
-	find_package(Vtune)
-
-	# Use bundled ffmpeg v4.x.x headers if we can't locate it in the system.
-	# We'll try to load it dynamically at runtime.
-	find_package(FFMPEG COMPONENTS avcodec avformat avutil swresample swscale)
-	if(NOT FFMPEG_FOUND)
-		message(WARNING "FFmpeg not found, using bundled headers.")
-		set(FFMPEG_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/3rdparty/ffmpeg/include")
-	endif()
-
-	## Use CheckLib package to find module
-	include(CheckLib)
-
-	if(UNIX AND NOT APPLE AND NOT IOS)
-		find_package(Fontconfig REQUIRED)
-		if(LINUX)
-			check_lib(LIBUDEV libudev libudev.h)
-		endif()
-
-		if(X11_API)
-			find_package(X11 REQUIRED)
-			if (NOT X11_Xrandr_FOUND)
-				message(FATAL_ERROR "XRandR extension is required")
-			endif()
-		endif()
-
-		if(WAYLAND_API)
-			find_package(ECM REQUIRED NO_MODULE)
-			list(APPEND CMAKE_MODULE_PATH "${ECM_MODULE_PATH}")
-			find_package(Wayland REQUIRED Egl)
-		endif()
-
-		if(USE_BACKTRACE)
-			find_package(Libbacktrace REQUIRED)
-		endif()
-
-		find_package(PkgConfig REQUIRED)
-		pkg_check_modules(DBUS REQUIRED dbus-1)
-	endif()
-endif()
-
-set(CMAKE_FIND_FRAMEWORK ${FIND_FRAMEWORK_BACKUP})
-
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/fast_float EXCLUDE_FROM_ALL)
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/lzma EXCLUDE_FROM_ALL)
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/libchdr EXCLUDE_FROM_ALL)
-disable_compiler_warnings_for_target(libchdr)
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/soundtouch EXCLUDE_FROM_ALL)
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/simpleini EXCLUDE_FROM_ALL)
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/imgui EXCLUDE_FROM_ALL)
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/cpuinfo EXCLUDE_FROM_ALL)
-disable_compiler_warnings_for_target(cpuinfo)
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/libzip EXCLUDE_FROM_ALL)
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/rcheevos EXCLUDE_FROM_ALL)
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/rapidjson EXCLUDE_FROM_ALL)
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/discord-rpc EXCLUDE_FROM_ALL)
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/freesurround EXCLUDE_FROM_ALL)
-
-if(USE_OPENGL)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/glad EXCLUDE_FROM_ALL)
-endif()
-
-if(USE_VULKAN AND NOT IOS)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/vulkan EXCLUDE_FROM_ALL)
-endif()
-
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/cubeb EXCLUDE_FROM_ALL)
-disable_compiler_warnings_for_target(cubeb)
-disable_compiler_warnings_for_target(speex)
-
-# Find the Qt components that we need.
-if(ENABLE_QT_UI AND NOT IOS)
-	find_package(Qt6 6.10.1 COMPONENTS CoreTools Core GuiTools Gui WidgetsTools Widgets LinguistTools REQUIRED)
-
-	if(NOT WIN32 AND NOT APPLE)
-		if (Qt6_VERSION VERSION_GREATER_EQUAL 6.10.0)
-			find_package(Qt6 COMPONENTS CorePrivate GuiPrivate WidgetsPrivate REQUIRED)
-		endif()
-	endif()
-
-	# The docking system for the debugger.
-	find_package(KDDockWidgets-qt6 2.3.0 REQUIRED)
-endif()
-
-if(WIN32)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/rainterface EXCLUDE_FROM_ALL)
-endif()
-
-# Demangler for the debugger.
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/demangler EXCLUDE_FROM_ALL)
-
-# Symbol table parser.
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/ccc EXCLUDE_FROM_ALL)
-
-# Architecture-specific.
-if(ARCH_X86)
-	add_subdirectory(3rdparty/zydis EXCLUDE_FROM_ALL)
-elseif(ARCH_ARM64)
-	add_subdirectory(3rdparty/vixl EXCLUDE_FROM_ALL)
-endif()
-
-# Prevent fmt from being built with exceptions, or being thrown at call sites.
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DFMT_USE_EXCEPTIONS=0 -DFMT_USE_RTTI=0")
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/fmt EXCLUDE_FROM_ALL)
-
-# Deliberately at the end. We don't want to set the flag on third-party projects.
-if(MSVC)
-	# Don't warn about "deprecated" POSIX functions.
-	add_definitions("-D_CRT_NONSTDC_NO_WARNINGS" "-D_CRT_SECURE_NO_WARNINGS" "-DCRT_SECURE_NO_DEPRECATE")
+    message(STATUS "iOS build: system UI/graphics libraries may not be found (using bundled or built-in)")
+    # On iOS, we still look for these packages but do not require them
+    find_package(PNG QUIET)
+    find_package(JPEG QUIET)
+    find_package(Zstd QUIET)
+    find_package(LZ4 QUIET)
+    find_package(WebP QUIET)
+    find_package(SDL3 QUIET)
+    find_package(Freetype QUIET)
+    find_package(plutovg CONFIG QUIET)
+    find_package(plutosvg CONFIG QUIET)
+    find_package(ryml CONFIG QUIET)
 endif()
