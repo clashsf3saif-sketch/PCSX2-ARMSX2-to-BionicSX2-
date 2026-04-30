@@ -208,7 +208,7 @@ if(NOT WIN32)
 		target_link_libraries(common PRIVATE curl ssl crypto nghttp2 pcap)
 	else()
 		target_link_libraries(common PRIVATE
-			CURL::libcurl
+			$<$<NOT:$<BOOL:${IOS}>>:CURL::libcurl>
 		)
 	endif()
 endif()
