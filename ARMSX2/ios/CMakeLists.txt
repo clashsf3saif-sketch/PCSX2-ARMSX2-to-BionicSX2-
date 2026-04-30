@@ -26,3 +26,13 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/fmt ${CMAKE_CURRENT_BINARY_DIR}/fm
 
 # Create stub target for CURL::libcurl (not needed on iOS but required for linking)
 add_library(CURL::libcurl INTERFACE IMPORTED)
+
+# Stub target for CURL::libcurl (not needed on iOS)
+if(NOT TARGET CURL::libcurl)
+    add_library(CURL::libcurl INTERFACE IMPORTED)
+endif()
+
+# Stub target for rapidyaml::rapidyaml (not needed on iOS)
+if(NOT TARGET rapidyaml::rapidyaml)
+    add_library(rapidyaml::rapidyaml INTERFACE IMPORTED)
+endif()
