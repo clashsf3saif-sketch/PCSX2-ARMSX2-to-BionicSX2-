@@ -1,0 +1,86 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+
+    - name: Install dependencies
+      run: |
+        npm install -g @react-native-community/cli
+
+    - name: Generate React Native iOS project
+      run: |
+        cd ARMSX2
+        npx @react-native-community/cli init BionicSX2
+        cp -r BionicSX2/ios ios/
+        rm -rf BionicSX2
+
+    - name: Build PCSX2 static library with CMake
+      run: |
+        cd ARMSX2/ios
+        mkdir -p build && cd build
+        cmake .. -DCMAKE_DISABLE_FIND_PACKAGE_CURL=ON \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_TOOLCHAIN_FILE=../ios.toolchain.cmake \
+          
+        cmake --build . --config Release -j$(sysctl -n hw.logicalcpu)
+
+    - name: Create ExportOptions.plist
+      run: |
+        cat << PLIST > ARMSX2/ios/ExportOptions.plist
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>method</key>
+            <string>development</string>
+            <key>compileBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <false/>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>teamID</key>
+            <string></string>
+            <key>signingCertificate</key>
+            <string></string>
+            <key>provisioningProfiles</key>
+            <dict/>
+        </dict>
+        </plist>
+        PLIST
+
+    - name: Build iOS app with Xcode
+      run: |
+        cd ARMSX2/ios
+        xcodebuild archive \
+          -project ARMSX2.xcodeproj \
+          -scheme ARMSX2 \
+          -archivePath build/App.xcarchive \
+          CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+        xcodebuild -exportArchive \
+          -archivePath build/App.xcarchive \
+          -exportPath build/ \
+          -exportOptionsPlist ExportOptions.plist
+
+    - name: Upload IPA artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: BionicSX2.ipa
+        path: ARMSX2/ios/build/BionicSX2.ipa
