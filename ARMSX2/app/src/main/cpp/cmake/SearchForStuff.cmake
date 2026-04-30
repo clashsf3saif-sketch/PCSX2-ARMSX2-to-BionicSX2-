@@ -12,8 +12,21 @@ find_package(Threads REQUIRED)
 set(FIND_FRAMEWORK_BACKUP ${CMAKE_FIND_FRAMEWORK})
 set(CMAKE_FIND_FRAMEWORK NEVER)
 
-# For iOS, we skip many system dependencies as they're not available in the iOS SDK
-if(NOT IOS)
+# For iOS, we make system dependencies non-REQUIRED as they're not available in the iOS SDK
+if(IOS)
+	find_package(PNG 1.6.40)
+	find_package(JPEG)
+	find_package(ZLIB)
+	find_package(Zstd 1.5.5)
+	find_package(LZ4)
+	find_package(WebP)
+	find_package(SDL3 3.2.6)
+	find_package(Freetype 2.10)
+	find_package(plutovg 1.1.0)
+	find_package(plutosvg 0.0.7)
+	find_package(ryml)
+	message(STATUS "iOS build: system UI/graphics libraries may not be found (using bundled or built-in)")
+else()
 	find_package(PNG 1.6.40 REQUIRED)
 	find_package(JPEG REQUIRED) # No version because flatpak uses libjpeg-turbo.
 	find_package(ZLIB REQUIRED) # v1.3, but Mac uses the SDK version.
@@ -25,8 +38,6 @@ if(NOT IOS)
 	find_package(plutovg 1.1.0 REQUIRED)
 	find_package(plutosvg 0.0.7 REQUIRED)
 	find_package(ryml REQUIRED)
-else()
-	message(STATUS "iOS build: skipping external UI/graphics libraries (will use bundled or built-in)")
 endif()
 
 if(USE_VULKAN)
