@@ -20,3 +20,9 @@ set(IOS TRUE)
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/common ${CMAKE_CURRENT_BINARY_DIR}/common)
 add_subdirectory(${CMAKE_SOURCE_DIR}/pcsx2 ${CMAKE_CURRENT_BINARY_DIR}/pcsx2)
+
+# Add fmt library for iOS
+add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/fmt ${CMAKE_CURRENT_BINARY_DIR}/fmt)
+
+# Create stub target for CURL::libcurl (not needed on iOS but required for linking)
+add_library(CURL::libcurl INTERFACE IMPORTED)
